@@ -422,7 +422,32 @@ function segmentsFor (racerEvent, opData) {
 function relevantPath (pattern, relativeSegments) {
   if (pattern === '**') return [null].concat(relativeSegments);
   // Check for patterns "collection**" or e.g., "collection.*.x.y.z**"
-  if (pattern.slice(pattern.length-2, pattern.length) === '**') {
+  if (pattern.slice(-2) === '**') {
+
+    // strip the end **
+    pattern = pattern.slice(0, -2);
+
+    // Handle e.g., pattern = "collection.*.x.y.z"
+    var patternSegments = pattern.split('.');
+
+    if (patternSegments[1] !== '*') {
+      console.warn('Unexpected pattern', pattern);
+    }
+
+    var patternRelativeSegments = patternSegments.slice(2);
+    var regExp = patternToRegExp(patternRelativeSegments.join('.'), true);
+    var matches = regExp.exec(relativeSegments.join('.'));
+
+    if (matches) {
+      for (var i = 1, l = matches.length; i < l; i++) {
+        if (/^\d+$/.test(matches[i])) {
+          matches[i] = parseInt(matches[i], 10);
+        }
+      }
+    }
+
+    return matches;
+
   } else {
     // Handle e.g., pattern = "collection.*.x.y.z"
     var patternSegments = pattern.split('.');
@@ -475,10 +500,20 @@ function calcChangeTo (racerMethod, opData, relativeSegments, snapshotData) {
   }
 }
 
-function patternToRegExp (pattern) {
+function patternToRegExp (pattern, catchEnd) {
   var regExpString = pattern
     .replace(/\./g, "\\.")
     .replace(/\*/g, "([^.]+)");
+
+    if (catchEnd) {
+      // ends in dot? make optional
+      if (regExpString.slice(-2) === "\\.") {
+        regExpString += "?";
+      }
+
+      regExpString += "(.*)$";
+    }
+
   return new RegExp(regExpString);
 }
 
