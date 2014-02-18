@@ -147,7 +147,7 @@ function plugin (racer, options) {
         if (isRelevantPath.length > 1) {
           var matches = isRelevantPath;
           var args = [docName].concat(matches.slice(1));
-          // have to "push" changeTo because it can be an empty array
+          // have to "array.push" changeTo because it can be an empty array and array.concat would not preserve it
           args.push(changeTo, snapshotData, connectSession);
           return validate.apply(null, args);
           // return validate.apply(null, [docName].concat(matches.slice(1)).concat(changeTo, snapshotData, connectSession));
