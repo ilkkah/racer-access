@@ -146,7 +146,11 @@ function plugin (racer, options) {
         var changeTo = calcChangeTo(racerMethod, opData, relativeSegments, snapshotData);
         if (isRelevantPath.length > 1) {
           var matches = isRelevantPath;
-          return validate.apply(null, [docName].concat(matches.slice(1)).concat(changeTo, snapshotData, connectSession));
+          var args = [docName].concat(matches.slice(1));
+          // have to "push" changeTo because it can be an empty array
+          args.push(changeTo, snapshotData, connectSession);
+          return validate.apply(null, args);
+          // return validate.apply(null, [docName].concat(matches.slice(1)).concat(changeTo, snapshotData, connectSession));
         } else {
           return validate(docName, changeTo, snapshotData, connectSession);
         }
