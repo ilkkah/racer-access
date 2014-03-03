@@ -144,16 +144,7 @@ function plugin (racer, options) {
         if (! isRelevantPath) return;
 
         var changeTo = calcChangeTo(racerMethod, opData, relativeSegments, snapshotData);
-        if (isRelevantPath.length > 1) {
-          var matches = isRelevantPath;
-          var args = [docName].concat(matches.slice(1));
-          // have to "array.push" changeTo because it can be an empty array and array.concat would not preserve it
-          args.push(changeTo, snapshotData, connectSession);
-          return validate.apply(null, args);
-          // return validate.apply(null, [docName].concat(matches.slice(1)).concat(changeTo, snapshotData, connectSession));
-        } else {
-          return validate(docName, changeTo, snapshotData, connectSession);
-        }
+        return validate(docName, relativeSegments, changeTo, snapshotData, connectSession);
       }
     );
 
@@ -242,7 +233,7 @@ function plugin (racer, options) {
         var segments = opData.op[0].p;
         var index = segments[segments.length-1];
         var howMany = 1;
-        return validate(docName, index, howMany, snapshotData, connectSession);
+        return validate(docName, relativeSegments.concat(index), howMany, snapshotData, connectSession);
 
       }
     );
@@ -262,7 +253,7 @@ function plugin (racer, options) {
         var segments = opData.op[0].p;
         var index = segments[segments.length-1];
         var toInsert = [opData.op[0].li];
-        return validate(docName, index, toInsert, snapshotData, connectSession);
+        return validate(docName, relativeSegments.concat(index), toInsert, snapshotData, connectSession);
       }
     );
   };
@@ -282,7 +273,7 @@ function plugin (racer, options) {
         var from = segments[segments.length-1];
         var to = opData.op[0].lm - 1;
         var howMany = 1;
-        return validate(docName, from, to, howMany, snapshotData, connectSession);
+        return validate(docName, relativeSegments, from, to, howMany, snapshotData, connectSession);
       }
     );
   };
@@ -304,7 +295,7 @@ function plugin (racer, options) {
           var relativeSegments = segmentsFor(racerMethod, opData);
           var isRelevantPath = relevantPath(pattern, relativeSegments);
           if (! isRelevantPath) return;
-          return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession);
+          return validate(docName, relativeSegments, opData, snapshotData, connectSession);
         }
       }
     );
@@ -337,11 +328,7 @@ function plugin (racer, options) {
           var relativeSegments = segmentsFor(racerMethod, opData);
           var isRelevantPath = relevantPath(pattern, relativeSegments);
           if (! isRelevantPath) return;
-          if (isRelevantPath.length > 1) {
-            return validate.apply(null, [docName].concat(isRelevantPath.slice(1)).concat(relativeSegments.join('.'), opData, snapshotData, connectSession));
-          } else {
-            return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession);
-          }
+          return validate(docName, relativeSegments, opData, snapshotData, connectSession);
         }
       }
     );
@@ -425,60 +412,28 @@ function segmentsFor (racerEvent, opData) {
 
 function relevantPath (pattern, relativeSegments) {
   if (pattern === '**') return [null].concat(relativeSegments);
-  // Check for patterns "collection**" or e.g., "collection.*.x.y.z**"
-  if (pattern.slice(-2) === '**') {
 
-    // strip the end **
-    pattern = pattern.slice(0, -2);
+  var patternSegments = pattern.split('.');
 
-    // Handle e.g., pattern = "collection.*.x.y.z"
-    var patternSegments = pattern.split('.');
-
-    if (patternSegments[1] !== '*') {
-      console.warn('Unexpected pattern', pattern);
-    }
-
-    var patternRelativeSegments = patternSegments.slice(2);
-    var regExp = patternToRegExp(patternRelativeSegments.join('.'), true);
-    var matches = regExp.exec(relativeSegments.join('.'));
-
-    if (matches) {
-      for (var i = 1, l = matches.length; i < l; i++) {
-        if (/^\d+$/.test(matches[i])) {
-          matches[i] = parseInt(matches[i], 10);
-        }
-      }
-    }
-
-    return matches;
-
-  } else {
-    // Handle e.g., pattern = "collection.*.x.y.z"
-    var patternSegments = pattern.split('.');
-    if (patternSegments[1] !== '*') {
-      console.warn('Unexpected pattern', pattern);
-    }
-    var patternRelativeSegments = patternSegments.slice(2);
-
-    // Pass to next middleware if pattern does not match the mutated path
-    if (relativeSegments.length !== patternRelativeSegments.length) {
-      return false;
-    }
-
-    if (-1 === patternRelativeSegments.indexOf('*')) {
-      return relativeSegments.join('.') === patternRelativeSegments.join('.');
-    }
-    var regExp = patternToRegExp(patternRelativeSegments.join('.'));
-    var matches = regExp.exec(relativeSegments.join('.'));
-    if (matches) {
-      for (var i = 1, l = matches.length; i < l; i++) {
-        if (/^\d+$/.test(matches[i])) {
-          matches[i] = parseInt(matches[i], 10);
-        }
-      }
-    }
-    return matches;
+  if (patternSegments[1] !== '*') {
+    console.warn('Unexpected pattern', pattern);
   }
+
+  var patternRelativeSegments = patternSegments.slice(2);
+  var regExp = patternToRegExp(patternRelativeSegments.join('.'));
+  var matches = regExp.exec(relativeSegments.join('.'));
+  var result;
+
+  if (matches) {
+    result = matches[0].split('.');
+    for (var i = 0, l = result.length; i < l; i++) {
+      if (/^\d+$/.test(result[i])) {
+        result[i] = parseInt(result[i], 10);
+      }
+    }
+  }
+
+  return result;
 }
 
 function calcChangeTo (racerMethod, opData, relativeSegments, snapshotData) {
@@ -504,19 +459,12 @@ function calcChangeTo (racerMethod, opData, relativeSegments, snapshotData) {
   }
 }
 
-function patternToRegExp (pattern, catchEnd) {
-  var regExpString = pattern
+function patternToRegExp (pattern) {
+  var regExpString = '^' + pattern
     .replace(/\./g, "\\.")
-    .replace(/\*/g, "([^.]+)");
-
-    if (catchEnd) {
-      // ends in dot? make optional
-      if (regExpString.slice(-2) === "\\.") {
-        regExpString += "?";
-      }
-
-      regExpString += "(.*)$";
-    }
+    .replace(/\*\*/g, "(.+?)")
+    .replace(/\*/g, "([^.]+)")
+    + '$';
 
   return new RegExp(regExpString);
 }
