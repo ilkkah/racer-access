@@ -1,4 +1,4 @@
-var deepCopy = require('racer-util/object').deepCopy;
+var deepCopy = require('racer').util.deepCopy;
 
 exports = module.exports = plugin;
 

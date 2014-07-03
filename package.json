@@ -4,15 +4,13 @@
   "description": "Access control plugin for racer",
   "main": "index.js",
   "dependencies": {
-    "racer-util": "*"
   },
   "devDependencies": {
-    "racer": "0.5.x",
+    "racer": "*",
     "livedb": "*",
     "redis": "*",
     "async": "*",
     "mocha": "*",
-    "coffee-script": "*",
     "express": "*",
     "racer-browserchannel": "*",
     "coffeeify": "*",
