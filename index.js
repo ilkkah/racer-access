@@ -46,7 +46,7 @@ function plugin (racer, options) {
       }
       var err;
       for (var i = 0, l = validators.length; i < l; i++) {
-        err = validators[i](collection, docName, opData, data.data, connectSession);
+        err = validators[i](collection, docName, opData, data.data, connectSession, origin);
         if (err) break;
       }
       if (err) return err;
@@ -132,7 +132,7 @@ function plugin (racer, options) {
 
   Store.prototype._allow_change = function (pattern, validate) {
     this.shareClient._validatorsUpdate.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         var racerMethod = opToRacerMethod(opData.op);
         if (-1 === ['change', 'stringRemove', 'stringInsert', 'increment'].indexOf(racerMethod)) {
@@ -144,20 +144,20 @@ function plugin (racer, options) {
         if (! isRelevantPath) return;
 
         var changeTo = calcChangeTo(racerMethod, opData, relativeSegments, snapshotData);
-        return validate(docName, relativeSegments, changeTo, snapshotData, connectSession);
+        return validate(docName, relativeSegments, changeTo, snapshotData, connectSession, origin);
       }
     );
 
     var indexOfDot = pattern.indexOf('.');
     if ((indexOfDot !== -1) && (indexOfDot + 2 === pattern.length) && pattern.charAt(pattern.length-1) === '*') {
       this.shareClient._validatorsCreate.push(
-        function (collection, docName, opData, snapshotData, connectSession) {
+        function (collection, docName, opData, snapshotData, connectSession, origin) {
           if (! collectionMatchesPattern(collection, pattern)) return;
 
           if (collection !== opData.collection) return;
 
           var newDoc = opData.create.data;
-          return validate(docName, newDoc, connectSession);
+          return validate(docName, newDoc, connectSession, origin);
         }
       );
     }
@@ -172,10 +172,10 @@ function plugin (racer, options) {
    */
   Store.prototype._allow_create = function (pattern, validate) {
     this.shareClient._validatorsCreate.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         var newDoc = opData.create.data;
-        return validate(docName, newDoc, connectSession);
+        return validate(docName, newDoc, connectSession, origin, origin);
       }
     );
   };
@@ -193,15 +193,15 @@ function plugin (racer, options) {
     // set up for document deletion.
     if (pattern.indexOf('.') === -1 && pattern.indexOf('*') === -1) {
       this.shareClient._validatorsDel.push(
-        function (collection, docName, opData, snapshotData, connectSession) {
+        function (collection, docName, opData, snapshotData, connectSession, origin) {
           if (! collectionMatchesPattern(collection, pattern)) return;
           var docToRemove = snapshotData;
-          return validate(docName, docToRemove, connectSession);
+          return validate(docName, docToRemove, connectSession, origin);
         }
       );
     } else {
       this.shareClient._validatorsUpdate.push(
-        function (collection, docName, opData, snapshotData, connectSession) {
+        function (collection, docName, opData, snapshotData, connectSession, origin) {
           if (! collectionMatchesPattern(collection, pattern)) return;
 
           var item = opData.op[0];
@@ -212,7 +212,7 @@ function plugin (racer, options) {
           var valueToDelete = item.od;
           if (valueToDelete === void 0) return;
 
-          return validate(docName, valueToDelete, snapshotData, connectSession);
+          return validate(docName, valueToDelete, snapshotData, connectSession, origin);
         }
       );
     }
@@ -220,7 +220,7 @@ function plugin (racer, options) {
 
   Store.prototype._allow_remove = function (pattern, validate) {
     this.shareClient._validatorsUpdate.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         var racerMethod = opToRacerMethod(opData.op);
         if (racerMethod !== 'remove') return;
@@ -233,7 +233,7 @@ function plugin (racer, options) {
         var segments = opData.op[0].p;
         var index = segments[segments.length-1];
         var howMany = 1;
-        return validate(docName, relativeSegments.concat(index), howMany, snapshotData, connectSession);
+        return validate(docName, relativeSegments.concat(index), howMany, snapshotData, connectSession, origin);
 
       }
     );
@@ -241,7 +241,7 @@ function plugin (racer, options) {
 
   Store.prototype._allow_insert = function (pattern, validate) {
     this.shareClient._validatorsUpdate.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         var racerMethod = opToRacerMethod(opData.op);
         if (racerMethod !== 'insert') return;
@@ -253,14 +253,14 @@ function plugin (racer, options) {
         var segments = opData.op[0].p;
         var index = segments[segments.length-1];
         var toInsert = [opData.op[0].li];
-        return validate(docName, relativeSegments.concat(index), toInsert, snapshotData, connectSession);
+        return validate(docName, relativeSegments.concat(index), toInsert, snapshotData, connectSession, origin);
       }
     );
   };
 
   Store.prototype._allow_move = function (pattern, validate) {
     this.shareClient._validatorsUpdate.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         var racerMethod = opToRacerMethod(opData.op);
         if (racerMethod !== 'move') return;
@@ -273,62 +273,62 @@ function plugin (racer, options) {
         var from = segments[segments.length-1];
         var to = opData.op[0].lm - 1;
         var howMany = 1;
-        return validate(docName, relativeSegments, from, to, howMany, snapshotData, connectSession);
+        return validate(docName, relativeSegments, from, to, howMany, snapshotData, connectSession, origin);
       }
     );
   };
 
   Store.prototype._allow_all = function (pattern, validate) {
     this.shareClient._validatorsUpdate.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         if (pattern === '**') {
           var racerMethod = opToRacerMethod(opData.op);
           var relativeSegments = segmentsFor(racerMethod, opData);
-          return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession);
+          return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession, origin);
         } else if (pattern === collection + '**') {
           var racerMethod = opToRacerMethod(opData.op);
           var relativeSegments = segmentsFor(racerMethod, opData);
-          return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession);
+          return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession, origin);
         } else {
           var racerMethod = opToRacerMethod(opData.op);
           var relativeSegments = segmentsFor(racerMethod, opData);
           var isRelevantPath = relevantPath(pattern, relativeSegments);
           if (! isRelevantPath) return;
-          return validate(docName, relativeSegments, opData, snapshotData, connectSession);
+          return validate(docName, relativeSegments, opData, snapshotData, connectSession, origin);
         }
       }
     );
 
     this.shareClient._validatorsCreate.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         if ((pattern === '**') || (pattern === collection + '**')) {
           var relPath = '';
-          return validate(docName, relPath, opData, snapshotData, connectSession);
+          return validate(docName, relPath, opData, snapshotData, connectSession, origin);
         }
       }
     );
 
     this.shareClient._validatorsDel.push(
-      function (collection, docName, opData, snapshotData, connectSession) {
+      function (collection, docName, opData, snapshotData, connectSession, origin) {
         if (! collectionMatchesPattern(collection, pattern)) return;
         if ((pattern === '**') || (pattern === collection + '**')) {
           if (opData.op) {
             var racerMethod = opToRacerMethod(opData.op);
             var relativeSegments = segmentsFor(racerMethod, opData);
             var relPath = relativeSegments.join('.');
-            return validate(docName, relPath, opData, snapshotData, connectSession);
+            return validate(docName, relPath, opData, snapshotData, connectSession, origin);
           } else { // else deleting entire document
             var relPath = '';
-            return validate(docName, relPath, opData, snapshotData, connectSession);
+            return validate(docName, relPath, opData, snapshotData, connectSession, origin);
           }
         } else if (! opData.del) {
           var racerMethod = opToRacerMethod(opData.op);
           var relativeSegments = segmentsFor(racerMethod, opData);
           var isRelevantPath = relevantPath(pattern, relativeSegments);
           if (! isRelevantPath) return;
-          return validate(docName, relativeSegments, opData, snapshotData, connectSession);
+          return validate(docName, relativeSegments, opData, snapshotData, connectSession, origin);
         }
       }
     );
