@@ -50,7 +50,7 @@ function plugin (racer, options) {
         if (err) break;
       }
       if (err) return err;
-    }
+    };
   }
 
   racer.on('store', setupStore);
@@ -281,19 +281,20 @@ function plugin (racer, options) {
   Store.prototype._allow_all = function (pattern, validate) {
     this.shareClient._validatorsUpdate.push(
       function (collection, docName, opData, snapshotData, connectSession, origin) {
+        var racerMethod, relativeSegments, relPath, isRelevantPath;
         if (! collectionMatchesPattern(collection, pattern)) return;
         if (pattern === '**') {
-          var racerMethod = opToRacerMethod(opData.op);
-          var relativeSegments = segmentsFor(racerMethod, opData);
+          racerMethod = opToRacerMethod(opData.op);
+          relativeSegments = segmentsFor(racerMethod, opData);
           return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession, origin);
         } else if (pattern === collection + '**') {
-          var racerMethod = opToRacerMethod(opData.op);
-          var relativeSegments = segmentsFor(racerMethod, opData);
+          racerMethod = opToRacerMethod(opData.op);
+          relativeSegments = segmentsFor(racerMethod, opData);
           return validate(docName, relativeSegments.join('.'), opData, snapshotData, connectSession, origin);
         } else {
-          var racerMethod = opToRacerMethod(opData.op);
-          var relativeSegments = segmentsFor(racerMethod, opData);
-          var isRelevantPath = relevantPath(pattern, relativeSegments);
+          racerMethod = opToRacerMethod(opData.op);
+          relativeSegments = segmentsFor(racerMethod, opData);
+          isRelevantPath = relevantPath(pattern, relativeSegments);
           if (! isRelevantPath) return;
           return validate(docName, relativeSegments, opData, snapshotData, connectSession, origin);
         }
@@ -312,21 +313,22 @@ function plugin (racer, options) {
 
     this.shareClient._validatorsDel.push(
       function (collection, docName, opData, snapshotData, connectSession, origin) {
+        var racerMethod, relativeSegments, relPath, isRelevantPath;
         if (! collectionMatchesPattern(collection, pattern)) return;
         if ((pattern === '**') || (pattern === collection + '**')) {
           if (opData.op) {
-            var racerMethod = opToRacerMethod(opData.op);
-            var relativeSegments = segmentsFor(racerMethod, opData);
-            var relPath = relativeSegments.join('.');
+            racerMethod = opToRacerMethod(opData.op);
+            relativeSegments = segmentsFor(racerMethod, opData);
+            relPath = relativeSegments.join('.');
             return validate(docName, relPath, opData, snapshotData, connectSession, origin);
           } else { // else deleting entire document
-            var relPath = '';
+            relPath = '';
             return validate(docName, relPath, opData, snapshotData, connectSession, origin);
           }
         } else if (! opData.del) {
-          var racerMethod = opToRacerMethod(opData.op);
-          var relativeSegments = segmentsFor(racerMethod, opData);
-          var isRelevantPath = relevantPath(pattern, relativeSegments);
+          racerMethod = opToRacerMethod(opData.op);
+          relativeSegments = segmentsFor(racerMethod, opData);
+          isRelevantPath = relevantPath(pattern, relativeSegments);
           if (! isRelevantPath) return;
           return validate(docName, relativeSegments, opData, snapshotData, connectSession, origin);
         }
@@ -437,21 +439,21 @@ function relevantPath (pattern, relativeSegments) {
 }
 
 function calcChangeTo (racerMethod, opData, relativeSegments, snapshotData) {
-  var item = opData.op[0];
+  var index, text, currText, item = opData.op[0];
   if (racerMethod === 'change') {
     return item.oi || // object replace, insert, or delete
       item.li; // list replace
   } else if (racerMethod === 'stringInsert') {
-    var index = relativeSegments[relativeSegments.length-1];
-    var text = item.si;
-    var currText = lookupSegments(relativeSegments, snapshotData);
+    index = relativeSegments[relativeSegments.length-1];
+    text = item.si;
+    currText = lookupSegments(relativeSegments, snapshotData);
     return currText.slice(0, index) +
       text +
       currText.slice(index);
   } else if (racerMethod === 'stringRemove') {
-    var index = relativeSegments[relativeSegments.length-1];
-    var text = item.sd;
-    var currText = lookupSegments(relativeSegments, snapshotData);
+    index = relativeSegments[relativeSegments.length-1];
+    text = item.sd;
+    currText = lookupSegments(relativeSegments, snapshotData);
     return currText.slice(0, index) + currText.slice(index + text.length);
   } else if (racerMethod === 'increment') {
     var incrBy = item.na;
@@ -463,8 +465,8 @@ function patternToRegExp (pattern) {
   var regExpString = '^' + pattern
     .replace(/\./g, "\\.")
     .replace(/\*\*/g, "(.+?)")
-    .replace(/\*/g, "([^.]+)")
-    + '$';
+    .replace(/\*/g, "([^.]+)") +
+    '$';
 
   return new RegExp(regExpString);
 }
